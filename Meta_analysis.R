@@ -1,5 +1,3 @@
-setwd("/Users/jared/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive.noindex/OneDrive/Documents/University stuff/Honours Year/Thesis/Submissions/R code")
-
 library(ggplot2)
 library(metafor)
 library("rstan") # observe startup messages
@@ -17,6 +15,7 @@ library(stringr)
 library(forcats)
 library(kableExtra)
 
+# set up parallel computing for Bayesian analysis
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
@@ -27,9 +26,6 @@ dat$var = (dat$StdErr)^2
 
 
 ### FREQUENTIST APPROACH ###
-
-# Data without the Barros study.
-dat2 = dat[-c(7,8),]
 
 ## Fit models
 
@@ -84,7 +80,20 @@ CI <- conf_int(che.mod,
 p.val <- coef_test(che.mod, 
                    vcov = "CR2")
 
-# Without the Barros Paper
+## Produce summary plots of results
+
+# Forest plot on log(OR) scale
+forest.rma(che.mod)
+# Forest plot on OR scale
+forest.rma(che.mod, transf = exp, xlab = "Observed Outcome (Odds-Ratio)", showweights = TRUE, header = TRUE, addpred = F)
+abline(v = 1, col = "red", lty = 2)
+
+# Radial plot with Barros
+radial.rma(che.mod, zlab = "Z-score", xlab = "Inverse Standard Error", center = T, transf = exp)
+# Radial plot without Barros
+# Data without the Barros study
+dat2 = dat[-c(7,8),]
+# Model without the Barros Paper
 V2 <- with(dat2, 
           impute_covariance_matrix(vi = var,
                                    cluster = Paper,
@@ -99,23 +108,6 @@ che.mod2 <- rma.mv(yi = EffectSize,
                   dfs="contain")
 summary(che.mod2)
 
-CI2 <- conf_int(che.mod2, 
-               vcov = "CR2")
-p.val2 <- coef_test(che.mod2, 
-                   vcov = "CR2")
-
-
-## Produce summary plots of results
-
-# Forest plot on log(OR) scale
-forest.rma(che.mod)
-# Forest plot on OR scale
-forest.rma(che.mod, transf = exp, xlab = "Observed Outcome (Odds-Ratio)", showweights = TRUE, header = TRUE, addpred = F)
-abline(v = 1, col = "red", lty = 2)
-
-# Radial plot with Barros
-radial.rma(che.mod, zlab = "Z-score", xlab = "Inverse Standard Error", center = T, transf = exp)
-# Radial plot without Barros
 radial.rma(che.mod2, zlab = "Z-score", xlab = "Inverse Standard Error", center = T, transf = exp)
 
 # Funnel plot - Log-Odds scale
