@@ -14,10 +14,10 @@ setwd('/Users/gracecarmichael/OneDrive - University of Cape Town/STA honours/Pro
 # Using GWAS Atlas data 
 
 # These are the 77 SNPS we need from the obesity study
-BMI_SNPS <- read_csv("topSNPtable_atlasID_143.csv")
+BMI_SNPS <- read_csv("topSNPs.csv")
 BMI_SNPS = as.data.frame(BMI_SNPS)
 # These are all the SNPs associated with obesity
-nd = read.table("Noelle_data.uniq", header = T)
+nd = read.table("allSNPs.uniq", header = T)
 # extract full information about 77 SNPs from study
 dat = nd[which(nd$SNP %in% BMI_SNPS$rsID), ]
 # extract information on proxy SNP
