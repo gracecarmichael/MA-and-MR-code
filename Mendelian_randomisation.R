@@ -14,7 +14,7 @@ library(kableExtra)
 # Using GWAS Atlas data 
 
 # These are the 77 SNPS we need from the obesity study
-BMI_SNPS <- read_csv("topSNPs.csv")
+BMI_SNPS = read_csv("topSNPs.csv")
 BMI_SNPS = as.data.frame(BMI_SNPS)
 # These are all the SNPs associated with obesity
 nd = read.table("allSNPs.uniq", header = T)
