@@ -9,7 +9,7 @@ library(readr)
 library(LDlinkR)
 library(doParallel)
 library(kableExtra)
-setwd('/Users/gracecarmichael/OneDrive - University of Cape Town/STA honours/Project/MR')
+
 ### Load in the data ###
 # Using GWAS Atlas data 
 
