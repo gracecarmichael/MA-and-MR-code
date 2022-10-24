@@ -3,7 +3,6 @@ library(tidyverse)
 library(devtools)
 #install_github("phenoscanner/phenoscanner")
 library(phenoscanner)
-library(MRInstruments) 
 library(TwoSampleMR)
 library(readr)
 library(LDlinkR)
@@ -178,6 +177,8 @@ res <- mr(bmi_asthma_dat)
 res_or = generate_odds_ratios(res)
 res_or = res_or[c(1,3), ]
 res_or
+# Single SNP analysis results - for plots
+res_single <- mr_singlesnp(bmi_asthma_dat)
 
 ## Additional analyses (model checks)
 
@@ -282,7 +283,69 @@ exp.samps.egger = exp(post.samps.egger)
 head(rstan::As.mcmc.list(bayes_ivw))
 head(as.data.frame(rstan::extract(bayes_ivw)))
 
+## Leave-one-out analysis
 
+# Get the data, loop through row by row, each time removing that row and
+# saving a model
+
+loo_list = list()
+
+for (i in 1:nrow(bayes_data)) {
+  model = mr_ivw_stan(
+    bayes_data[-i,],
+    prior = 2,
+    n.chains = 3,
+    n.burn = 1000,
+    n.iter = 5000,
+    seed = 12345
+  )
+  
+  loo_list[[paste(bayes_data$rsid[i])]] = model
+}
+
+#save(loo_list, file = 'loo_list.Rdata')
+load('loo_list.Rdata')
+
+post.samples.loo = c()
+
+# Get the posterior samples for each version
+for (i in 1:nrow(bayes_data)) {
+  temp.post.samps.ivw = as.data.frame(rstan::extract(loo_list[[i]]))
+  names(temp.post.samps.ivw) = c("estimate", "lp")
+  
+  pooled_effect = exp(temp.post.samps.ivw$estimate)
+  
+  post.samples.loo = rbind(post.samples.loo, cbind(pooled_effect, paste(bayes_data$rsid[i]), i, mean(pooled_effect)))
+}
+
+# Add the labels to the data frame
+post.samples.loo = as.data.frame(post.samples.loo)
+names(post.samples.loo) <- c("pooled_effect", "estimate", "rank", "mean")
+
+# Change the variables that need to be numeric to numeric variables
+post.samples.loo$pooled_effect = as.numeric(post.samples.loo$pooled_effect)
+post.samples.loo$rank = as.numeric(post.samples.loo$rank)
+post.samples.loo$mean = as.numeric(post.samples.loo$mean)
+
+# Set up the bounds for the LOO plot
+bayes_ivw_sum = exp(summary(bayes_ivw)$summary[1,4:8])
+
+# LOO Plot
+post.samples.loo %>%
+  ungroup() %>%
+  
+  # plot
+  ggplot(aes(x = pooled_effect, y = reorder(estimate, mean))) +
+  geom_vline(xintercept = 1, color = "gray", size = 1, linetype = 2) +
+  geom_vline(xintercept = bayes_ivw_sum[3], color = "white", size = 1) +
+  geom_vline(xintercept = bayes_ivw_sum[c(1,5)], color = "white", linetype = 2) +
+  stat_halfeye(.width = .95, size = 2/3) +
+  xlim(0.9, 1.4) +
+  labs(x = expression(italic("Odds Ratio")),
+       y = NULL) +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
 
 
 ### Plots summarising results ###
@@ -355,8 +418,6 @@ egger.sig = ggplot(aes(x = sigma), data = post.samps.egger) +
   labs(x = "Egger Sigma",
        y = element_blank()) +
   theme_minimal()
-
-
 
 # Display the plots
 ivw.or
