@@ -657,3 +657,67 @@ together_paper %>%
   theme(panel.grid   = element_blank(),
         axis.ticks.y = element_blank(),
         axis.text.y  = element_text(hjust = 0))
+
+
+## Leave-one-out analysis
+brm.loo = loo(m.brm, moment_match = T)
+
+plot(brm.loo, label_points = T, xlab = "Estimate")
+pareto_k_influence_values(brm.loo)
+
+
+# Get the data, loop through row by row, each time removing that row and
+# saving a model
+
+loo_list = list()
+
+for (i in 1:nrow(dat)) {
+  model = brms::brm(EffectSize|se(StdErr) ~ 1 + (1|Paper) + (1 | id),
+                    data = dat[-i, ],
+                    prior = priors2,
+                    iter = iters, warmup = burn, cores = 8, chains = 4,
+                    seed = 14)
+  
+  loo_list[[paste(i, dat$Paper[i], sep = ". ")]] = model
+}
+
+
+#save(loo_list, file = 'loo_list.Rdata')
+load('loo_list.Rdata')
+
+post.samples.loo = c()
+
+# Get the posterior samples for each version.
+for (i in 1:nrow(dat)) {
+  post.samples <- posterior_samples(loo_list[[i]], c("^b", "^sd"))
+  names(post.samples) <- c("pooled_effect", "outcome_heterogeneity", "study_heterogeneity")
+  
+  pooled_effect = exp(post.samples$pooled_effect)
+  
+  post.samples.loo = rbind(post.samples.loo, cbind(pooled_effect, paste(i, dat$Paper[i], sep = ". "), i, mean(pooled_effect)))
+}
+
+post.samples.loo = as.data.frame(post.samples.loo)
+
+names(post.samples.loo) <- c("pooled_effect", "estimate", "rank", "mean")
+
+post.samples.loo$pooled_effect = as.numeric(post.samples.loo$pooled_effect)
+post.samples.loo$rank = as.numeric(post.samples.loo$rank)
+post.samples.loo$mean = as.numeric(post.samples.loo$mean)
+
+# LOO Plot
+post.samples.loo %>%
+  ungroup() %>%
+  
+  # plot
+  ggplot(aes(x = pooled_effect, y = reorder(estimate, mean))) +
+  geom_vline(xintercept = 1, color = "gray", size = 1, linetype = 2) +
+  geom_vline(xintercept = exp(fixef(m.brm)[1, 1]), color = "white", size = 1) +
+  geom_vline(xintercept = exp(fixef(m.brm)[1, 3:4]), color = "white", linetype = 2) +
+  stat_halfeye(.width = .95, size = 2/3) +
+  xlim(0, 2.5) +
+  labs(x = expression(italic("Odds Ratio")),
+       y = NULL) +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
